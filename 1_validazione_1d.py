@@ -61,6 +61,58 @@ else:
 print("=" * 60)
 
 
+#VERIFICA COSTO COMPUTAZIONALE
+N_1d = len(x_classico)
+
+#Costo FFT 1D (algoritmo Cooley-Tukey usato da np.fft.fft): O(N * log2(N)).
+costo_fft_1d = int(N_1d * np.log2(N_1d))
+
+#Costo QFT 1D: estraggo le porte reali dal gate (qft_gate).
+qft_1d_decomp = qft_gate.definition.decompose()
+porte_qft_1d_empirico = qft_1d_decomp.size()
+porte_qft_1d_teorico = num_qubits + (num_qubits * (num_qubits - 1)) // 2 + (num_qubits // 2)
+assert porte_qft_1d_empirico == porte_qft_1d_teorico
+
+print("\nCOSTO COMPUTAZIONALE 1D (N=4 campioni, n=2 qubit)")
+print("-" * 60)
+print(f"FFT Classica (np.fft.fft) -> Teorico O(N log2 N): {costo_fft_1d} operazioni")
+print(f"QFT Quantistica (Qiskit)  -> Empirico: {porte_qft_1d_empirico} porte | Teorico O(n^2): {porte_qft_1d_teorico} porte")
+print(f"Dettaglio porte del circuito QFT: {dict(qft_1d_decomp.count_ops())}")
+print("=" * 60)
+
+#Verifico l'andamento teorico vs empirico al crescere di N = 2^n.
+#Definisco una serie di prove da n=2 a n=10.
+n_range = np.arange(2, 11)
+N_range = 2**n_range
+
+#Calcolo complessità teorica della FFT classica.
+curva_fft_1d = N_range * n_range
+
+#Costruisco davvero il circuito QFT per ciascun valore di n e conto quante porte contiene realmente.
+curva_qft_1d_emp = [QFT(num_qubits=int(n), do_swaps=True).decompose().size() for n in n_range]
+
+#Applico la formula matematica del numero di porte della QFT (Costo QFT Teorico).
+curva_qft_1d_teo = n_range + (n_range * (n_range - 1)) // 2 + (n_range // 2)
+
+#Verifico che per ogni n, il numero di porte generate dal mio codice sia identico a quello previsto dalla teoria.
+assert list(curva_qft_1d_emp) == list(curva_qft_1d_teo)
+
+#GENERAZIONE GRAFICO COSTO COMPUTAZIONALE
+fig_c1, ax_c1 = plt.subplots(figsize=(8, 4.8))
+ax_c1.plot(N_range, curva_fft_1d, "o--", label=r"FFT 1D (np.fft.fft) — $\mathcal{O}(N \log_2 N)$", color="#1f77b4", linewidth=2)
+ax_c1.plot(N_range, curva_qft_1d_emp, "s-", label=r"QFT 1D (Empirico = Teorico) — $\mathcal{O}(n^2)$", color="#ff7f0e", linewidth=2)
+ax_c1.set_xscale("log", base=2)
+ax_c1.set_yscale("log", base=10)
+ax_c1.set_xlabel("Numero di campioni N = 2^n")
+ax_c1.set_ylabel("Operazioni / Porte quantistiche (scala log)")
+ax_c1.set_title("Verifica Costo Computazionale 1D: FFT Classica vs QFT")
+ax_c1.grid(True, which="both", linestyle="--", alpha=0.6)
+ax_c1.legend()
+plt.tight_layout()
+plt.savefig("costo_computazionale_1d.png", dpi=300)
+plt.close(fig_c1)
+
+
 frequenze = [f"k={i}" for i in range(len(moduli_classici))]
 x_axis = np.arange(len(frequenze))
 larghezza_barre = 0.35

@@ -70,13 +70,68 @@ print(
 )
 print("-" * 60)
 
-##Verifico che la matrice ottenuta dal circuito quantistico sia identica a quella generata da SciPy.
+#Verifico che la matrice ottenuta dal circuito quantistico sia identica a quella generata da SciPy.
 esito_2d = np.allclose(moduli_classici_2d, moduli_quantistici_2d)
 if esito_2d:
     print("ESITO: 2D-QFT CORRETTA! ✅ (Coincide perfettamente con SciPy FFT2)")
 else:
     print("ESITO: NON CORRETTO! ❌")
 print("=" * 60)
+
+
+#VERIFICA COSTO COMPUTAZIONALE
+N_lato = immagine_4x4.shape[0]
+M_pixel = immagine_4x4.size
+n_asse = int(np.log2(N_lato))
+
+#Costo FFT 2D classica (algoritmo Row-Column di scipy.fft.fft2): 2*N*(N log2 N) = O(N^2 log2 N).
+costo_fft_2d = int(2 * (N_lato**2) * np.log2(N_lato))
+
+#Costo 2D-QFT quantistica: estraggo le porte reali dai due gate (qft_colonne e qft_righe).
+#Scompongo il blocco qft_colonne e conto quante porte ci sono.
+porte_col = qft_colonne.definition.decompose().size()
+#Faccio uiguale ma per le righe.
+porte_rig = qft_righe.definition.decompose().size()
+#Sommo ottenendo il costo reale totale.
+porte_qft_2d_empirico = porte_col + porte_rig
+
+#Calcolo il numero previsto dalla formula teorica.
+porte_qft_2d_teorico = 2 * (n_asse + (n_asse * (n_asse - 1)) // 2 + (n_asse // 2))
+
+#Verifico che il conteggio reale coincida con querllo teorico.
+assert porte_qft_2d_empirico == porte_qft_2d_teorico
+
+print("\nCOSTO COMPUTAZIONALE 2D (Immagine 4x4 -> M=16 pixel, 4 qubit totali)")
+print("-" * 60)
+print(f"FFT 2D (scipy.fft2) -> Teorico O(N^2 log2 N): {costo_fft_2d} operazioni")
+print(f"2D-QFT (Qiskit)     -> Empirico: {porte_qft_2d_empirico} porte | Teorico O(n^2): {porte_qft_2d_teorico} porte")
+print(f"Dettaglio circuito 2D: {porte_col} porte (QFT_Col) + {porte_rig} porte (QFT_Righe)")
+print("=" * 60)
+
+#Verifico l'andamento teorico vs empirico al crescere della risoluzione NxN (da 2x2 a 64x64 pixel)
+n_assi = np.arange(1, 7)
+N_lati = 2**n_assi
+M_pixels = N_lati**2
+
+curva_fft_2d = 2 * (N_lati**2) * n_assi
+curva_qft_2d_emp = [2 * QFT(num_qubits=int(na), do_swaps=True).decompose().size() for na in n_assi]
+curva_qft_2d_teo = 2 * (n_assi + (n_assi * (n_assi - 1)) // 2 + (n_assi // 2))
+assert list(curva_qft_2d_emp) == list(curva_qft_2d_teo)
+
+#GENERAZIONE GRAFICO COSTO COMPUTAZIONALE
+fig_c2, ax_c2 = plt.subplots(figsize=(8, 4.8))
+ax_c2.plot(M_pixels, curva_fft_2d, "o--", label=r"FFT 2D (scipy.fft2) — $\mathcal{O}(N^2 \log_2 N)$", color="#1f77b4", linewidth=2)
+ax_c2.plot(M_pixels, curva_qft_2d_emp, "s-", label=r"2D-QFT (Empirico = Teorico) — $\mathcal{O}(n^2)$", color="#ff7f0e", linewidth=2)
+ax_c2.set_xscale("log", base=2)
+ax_c2.set_yscale("log", base=10)
+ax_c2.set_xlabel("Numero totale di pixel M = N × N")
+ax_c2.set_ylabel("Operazioni / Porte quantistiche (scala log)")
+ax_c2.set_title("Verifica Costo Computazionale 2D: FFT2 Classica vs 2D-QFT")
+ax_c2.grid(True, which="both", linestyle="--", alpha=0.6)
+ax_c2.legend()
+plt.tight_layout()
+plt.savefig("costo_computazionale_2d.png", dpi=300)
+plt.close(fig_c2)
 
 #GENERAZIONE FIGURA
 fig, axes = plt.subplots(1, 3, figsize=(14, 4.5))
